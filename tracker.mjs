@@ -1300,6 +1300,12 @@ const SUBCOMMAND_FLAGS = {
   },
 };
 
+const TOP_LEVEL_USAGE = [
+  'Usage: node tracker.mjs <sync|query|history|export|delete> [flags]',
+  ...Object.values(SUBCOMMAND_FLAGS).map(({ usage }) => usage),
+  'node tracker.mjs <command> --help prints one command. More examples: docs/SCRIPTS.md.',
+].join('\n\n');
+
 /**
  * Run one tracker.mjs command against the paths given, in-process.
  *
