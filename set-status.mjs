@@ -781,12 +781,16 @@ try {
       // Remove one whole note, never a substring of a longer note. The web
       // supplies --expect-notes so a stale click/retry cannot remove a duplicate.
       const escaped = removedNote.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const match = new RegExp(`(^|; )(${escaped})(?=; |$)`).exec(existing);
+      const match = new RegExp(`(^|; )(\\s*)${escaped}\\s*(?=; |$)`).exec(existing);
       if (!match) failWith(EXIT_USAGE, 'remove-note-not-found', 'This note is no longer present. Refresh before trying again.');
-      let start = match.index + match[1].length;
-      let end = start + removedNote.length;
-      if (existing.slice(end, end + 2) === '; ') end += 2;
-      else if (existing.slice(start - 2, start) === '; ') start -= 2;
+      let start = match.index + match[1].length + match[2].length;
+      let end = match.index + match[0].length;
+      const followingSeparator = /^;\s+/.exec(existing.slice(end));
+      if (followingSeparator) end += followingSeparator[0].length;
+      else {
+        const precedingSeparator = /\s*;\s*$/.exec(existing.slice(0, start));
+        if (precedingSeparator) start = precedingSeparator.index;
+      }
       const updated = existing.slice(0, start) + existing.slice(end);
       replaceCellValue(colmap.notes, updated.trim() ? updated : '—');
       noteChanged = true;

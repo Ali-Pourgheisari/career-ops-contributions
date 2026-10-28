@@ -36,6 +36,11 @@ for (const [before, note, after] of [
   ['literal [a].* $1; keep', 'literal [a].* $1', 'keep'],
   ['first; part one; part two; last', 'part one; part two', 'first; last'],
   ['--dry-run; keep', '--dry-run', 'keep'],
+  ['a;  b', 'b', 'a'],
+  ['a ; b', 'a', 'b'],
+  ['first  ;   second  ;  third', 'first', 'second  ;  third'],
+  ['first  ;   second  ;  third', 'second', 'first  ;   third'],
+  ['first  ;   second  ;  third', 'third', 'first  ;   second'],
 ]) {
   test(`remove whole note ${JSON.stringify(note)} from ${JSON.stringify(before)}`, t => {
     const f = fixture(t, before);
@@ -62,6 +67,12 @@ test('missing notes and substring-only matches are refused without writing', t =
   assert.equal(result.status, 1);
   assert.equal(result.json.code, 'remove-note-not-found');
   assert.equal(readFileSync(f.file, 'utf8'), tracker('call Alex; keep'));
+});
+
+test('extra separator spaces do not turn a partial note into a whole-note match', t => {
+  const f = fixture(t, 'first;  call Alex  ; last');
+  assert.equal(run(f, '--remove-note=call').json.code, 'remove-note-not-found');
+  assert.equal(readFileSync(f.file, 'utf8'), tracker('first;  call Alex  ; last'));
 });
 test('dry runs and invalid flag combinations never change a tracker', t => {
   const f = fixture(t, 'keep; remove');
