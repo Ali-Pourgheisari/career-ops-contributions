@@ -94,7 +94,8 @@ export async function POST(req: Request) {
         batch: fs.readFileSync(/* turbopackIgnore: true */ path.join(root, "batch/batch-prompt.md"), "utf8"),
         sections: evaluation.sections,
       });
-    } catch {
+    } catch (error) {
+      console.error("[career-ops] Failed to load focused evaluation instructions:", error);
       return Response.json({ error: "Could not load the selected evaluation instructions. No AI run was started." }, { status: 422 });
     }
   }
