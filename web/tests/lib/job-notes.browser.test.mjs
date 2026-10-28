@@ -88,4 +88,29 @@ test('add, edit, delete, undo and persist job notes without changing status or o
   assert.equal(await beta().getByRole('button', { name: /^Notes for/ }).innerText(), 'Add note');
   const betaBefore = afterUndo.split('\n').find(line => line.startsWith('| 12 |'));
   assert.equal(fs.readFileSync(tracker, 'utf8'), afterUndo.replace(betaBefore, betaBefore.replace('| Fictional fixture only |', '| — |')));
+
+  // Hand-edited separator spacing still produces notes the UI can delete.
+  const beforeSpacing = fs.readFileSync(tracker, 'utf8');
+  const betaEmpty = beforeSpacing.split('\n').find(line => line.startsWith('| 12 |'));
+  fs.writeFileSync(tracker, beforeSpacing.replace(betaEmpty, betaEmpty.replace(/\| — \|$/, '| first  ;   second  ;  third |')));
+  await page.reload();
+  await beta().getByRole('button', { name: /^Notes for/ }).click();
+  await dialog().getByRole('button', { name: 'Delete note 2', exact: true }).click();
+  await dialog().getByText('second', { exact: true }).waitFor({ state: 'hidden' });
+  await dialog().getByText('first', { exact: true }).waitFor();
+  await dialog().getByText('third', { exact: true }).waitFor();
+  assert.match(fs.readFileSync(tracker, 'utf8').split('\n').find(line => line.startsWith('| 12 |')), /\| first  ;   third \|/);
+
+  const beforeInvalid = fs.readFileSync(tracker, 'utf8');
+  for (const action of [
+    { note: 'bad\0note' },
+    { note: 'new', replaceNote: 'bad\0previous' },
+    { removeNote: 'bad\0note', expectedNotes: 'first  ;   third' },
+    { removeNote: 'first', expectedNotes: 'bad\0snapshot' },
+  ]) {
+    const response = await page.request.post(`${origin.origin}/api/notes`, { data: { n: '12', status: 'Applied', ...action } });
+    assert.equal(response.status(), 400);
+    assert.equal(typeof (await response.json()).error, 'string');
+  }
+  assert.equal(fs.readFileSync(tracker, 'utf8'), beforeInvalid);
 });
