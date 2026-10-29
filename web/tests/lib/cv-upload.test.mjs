@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { test } from "node:test";
 import { pdfText } from "../../src/lib/cv/pdf-text.mjs";
 import { CV_UPLOAD_ACCEPT, cvUploadError, MAX_CV_UPLOAD_BYTES } from "../../src/lib/cv/upload.mjs";
+
+// Core CI runs these suites with only root dependencies installed. The web CI
+// installs web dependencies and must run the real PDF extraction checks. Only
+// skip when that install is absent; a broken web install must still fail.
+let skipPdf = false;
+try {
+  import.meta.resolve("pdfjs-dist/legacy/build/pdf.mjs");
+} catch (error) {
+  if (error.code !== "ERR_MODULE_NOT_FOUND" || existsSync(new URL("../../node_modules", import.meta.url))) throw error;
+  skipPdf = "web dependencies are not installed (PDF extraction runs in web CI)";
+}
 
 // A real, minimal PDF with deterministic fictional text and a valid xref table.
 export function cvPdf(lines = ["Alex Example", "Engineer 2021-2026", "Improved delivery by 25%"] ) {
@@ -24,12 +36,12 @@ export function cvPdf(lines = ["Alex Example", "Engineer 2021-2026", "Improved d
   return new TextEncoder().encode(pdf);
 }
 
-test("PDF text extraction preserves CV names, dates and metrics", async () => {
+test("PDF text extraction preserves CV names, dates and metrics", { skip: skipPdf }, async () => {
   const text = await pdfText(cvPdf().buffer);
   for (const fact of ["Alex Example", "2021-2026", "25%"]) assert.ok(text.includes(fact), text);
 });
 
-test("empty and malformed PDFs fail instead of proposing an empty CV", async () => {
+test("empty and malformed PDFs fail instead of proposing an empty CV", { skip: skipPdf }, async () => {
   await assert.rejects(pdfText(cvPdf([]).buffer), /no readable text/);
   await assert.rejects(pdfText(new TextEncoder().encode("This is not a PDF").buffer), /could not be read/);
 });
